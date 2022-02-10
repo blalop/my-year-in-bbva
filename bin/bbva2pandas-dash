@@ -1,0 +1,13 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+
+try:
+    from bbva2pandas_dash import app
+except ImportError:
+    sys.path.append(os.path.abspath('./'))
+    from bbva2pandas_dash import app
+
+if __name__ == '__main__':
+    app.run_server(debug=True)
