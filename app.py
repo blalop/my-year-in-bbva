@@ -20,6 +20,7 @@ directory, debug = parse_args()
 operations = Operations(directory)
 
 app = Dash(__name__)
+
 app.layout = html.Div(
     children=[
         html.H1(children="BBVA Account"),
@@ -45,8 +46,9 @@ def update_concept(click_data):
 
     concept = click_data["points"][0]["label"]
     amount = click_data["points"][0]["value"]
+    type = "incoming" if amount > 0 else "spending"
 
-    operations_by_concept = operations.query_by_concept(concept, amount)
+    operations_by_concept = operations.query_by_concept(concept, type)
     return dash_table.DataTable(operations_by_concept.to_dict("records"))
 
 
@@ -59,8 +61,10 @@ def update_month(click_data):
 
     month = click_data["points"][0]["label"][:7]
     amount = click_data["points"][0]["value"]
-    monthly_operations = operations.query_by_month(month, amount)
-    return dash_table.DataTable(monthly_operations.to_dict("records"))
+    type = "incoming" if amount > 0 else "spending"
+
+    operations_by_month = operations.query_by_month(month, type)
+    return dash_table.DataTable(operations_by_month.to_dict("records"))
 
 
 if __name__ == "__main__":

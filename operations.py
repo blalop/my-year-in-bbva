@@ -30,64 +30,54 @@ def _group_amount_by_concept(df):
     return df_by_concept.drop(columns="balance").squeeze()
 
 
+def _filter_by_type(df, kind):
+    if kind == "incoming":
+        return df[df.amount > 0]
+    elif kind == "spending":
+        return df[df.amount < 0]
+    else:
+        return df
+
+
 class Operations:
     def __init__(self, path="."):
         self.operations = _extract_operations(path)
         self.incoming = self.operations.query("amount > 0")
         self.spending = self.operations.query("amount < 0")
 
-    @property
-    def group_by_year(self):
+    def _concat_groups(self, grouping_func):
         return pd.concat(
             {
-                "incoming": _group_amount_by_year(self.incoming),
-                "spending": _group_amount_by_year(self.spending),
-                "difference": _group_amount_by_year(self.incoming)
-                + _group_amount_by_year(self.spending),
+                "incoming": grouping_func(self.incoming),
+                "spending": grouping_func(self.spending),
+                "difference": grouping_func(self.incoming)
+                + grouping_func(self.spending),
             },
             axis=1,
         )
+
+    @property
+    def group_by_year(self):
+        return self._concat_groups(_group_amount_by_year)
 
     @property
     def group_by_month(self):
-        return pd.concat(
-            {
-                "incoming": _group_amount_by_month(self.incoming),
-                "spending": _group_amount_by_month(self.spending),
-                "difference": _group_amount_by_month(self.incoming)
-                + _group_amount_by_month(self.spending),
-            },
-            axis=1,
-        )
-
-    def query_by_month(self, month, amount):
-        if not amount:
-            return self.operations[(self.operations.date.dt.strftime('%Y-%m') == month)]
-        if amount > 0:
-            return self.operations[(self.operations.date.dt.strftime('%Y-%m') == month) & (self.operations.amount > 0)]
-        if amount < 0:
-            return self.operations[(self.operations.date.dt.strftime('%Y-%m') == month) & (self.operations.amount < 0)]
+        return self._concat_groups(_group_amount_by_month)
 
     @property
     def group_by_concept(self):
-        return pd.concat(
-            {
-                "incoming": _group_amount_by_concept(self.incoming),
-                "spending": _group_amount_by_concept(self.spending),
-                "difference": _group_amount_by_concept(self.incoming)
-                + _group_amount_by_concept(self.spending),
-            },
-            axis=1,
-        )
+        return self._concat_groups(_group_amount_by_concept)
 
     @property
     def concepts(self):
         return self.operations.concept.unique()
 
-    def query_by_concept(self, concept, amount):
-        if not amount:
-            return self.operations[(self.operations.concept == concept)]
-        if amount > 0:
-            return self.operations[(self.operations.concept == concept) & (self.operations.amount > 0)]
-        if amount < 0:
-            return self.operations[(self.operations.concept == concept) & (self.operations.amount < 0)]
+    def query_by_month(self, month, type):
+        operations_by_month = self.operations[
+            self.operations.date.dt.strftime("%Y-%m") == month
+        ]
+        return _filter_by_type(operations_by_month, type)
+
+    def query_by_concept(self, concept, type):
+        operations_by_concept = self.operations[self.operations.concept == concept]
+        return _filter_by_type(operations_by_concept, type)
