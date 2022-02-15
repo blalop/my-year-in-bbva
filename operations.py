@@ -37,7 +37,7 @@ class Operations:
         self.spending = self.operations.query("amount < 0")
 
     @property
-    def by_year(self):
+    def group_by_year(self):
         return pd.concat(
             {
                 "incoming": _group_amount_by_year(self.incoming),
@@ -49,7 +49,7 @@ class Operations:
         )
 
     @property
-    def by_month(self):
+    def group_by_month(self):
         return pd.concat(
             {
                 "incoming": _group_amount_by_month(self.incoming),
@@ -60,8 +60,16 @@ class Operations:
             axis=1,
         )
 
+    def query_by_month(self, month, amount):
+        if not amount:
+            return self.operations[(self.operations.date.dt.strftime('%Y-%m') == month)]
+        if amount > 0:
+            return self.operations[(self.operations.date.dt.strftime('%Y-%m') == month) & (self.operations.amount > 0)]
+        if amount < 0:
+            return self.operations[(self.operations.date.dt.strftime('%Y-%m') == month) & (self.operations.amount < 0)]
+
     @property
-    def by_concept(self):
+    def group_by_concept(self):
         return pd.concat(
             {
                 "incoming": _group_amount_by_concept(self.incoming),
@@ -71,3 +79,15 @@ class Operations:
             },
             axis=1,
         )
+
+    @property
+    def concepts(self):
+        return self.operations.concept.unique()
+
+    def query_by_concept(self, concept, amount):
+        if not amount:
+            return self.operations[(self.operations.concept == concept)]
+        if amount > 0:
+            return self.operations[(self.operations.concept == concept) & (self.operations.amount > 0)]
+        if amount < 0:
+            return self.operations[(self.operations.concept == concept) & (self.operations.amount < 0)]

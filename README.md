@@ -1,0 +1,3 @@
+# BBVA2Pandas Dash
+
+A Dash application mean to show the data about your expenses, incomes...

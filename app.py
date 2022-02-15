@@ -2,7 +2,7 @@
 
 import argparse
 import plotly.express as px
-from dash import Dash, html, dcc
+from dash import Dash, html, dcc, dash_table
 from dash.dependencies import Input, Output
 from operations import Operations
 
@@ -27,11 +27,40 @@ app.layout = html.Div(
             id="balance",
             figure=px.line(operations.operations, x="date", y="balance"),
         ),
-        dcc.Graph(id="by-year", figure=px.bar(operations.by_year)),
-        dcc.Graph(id="by-month", figure=px.bar(operations.by_month)),
-        dcc.Graph(id="by-concept", figure=px.bar(operations.by_concept)),
+        dcc.Graph(id="by-year", figure=px.bar(operations.group_by_year)),
+        dcc.Graph(id="grouped-by-month", figure=px.bar(operations.group_by_month)),
+        html.Div(id="query-by-month"),
+        dcc.Graph(id="grouped-by-concept", figure=px.bar(operations.group_by_concept)),
+        html.Div(id="query-by-concept"),
     ]
 )
+
+
+@app.callback(
+    Output("query-by-concept", "children"), Input("grouped-by-concept", "clickData")
+)
+def update_concept(click_data):
+    if not click_data:
+        return
+
+    concept = click_data["points"][0]["label"]
+    amount = click_data["points"][0]["value"]
+
+    operations_by_concept = operations.query_by_concept(concept, amount)
+    return dash_table.DataTable(operations_by_concept.to_dict("records"))
+
+
+@app.callback(
+    Output("query-by-month", "children"), Input("grouped-by-month", "clickData")
+)
+def update_month(click_data):
+    if not click_data:
+        return
+
+    month = click_data["points"][0]["label"][:7]
+    amount = click_data["points"][0]["value"]
+    monthly_operations = operations.query_by_month(month, amount)
+    return dash_table.DataTable(monthly_operations.to_dict("records"))
 
 
 if __name__ == "__main__":
