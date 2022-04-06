@@ -31,12 +31,16 @@ def _group_amount_by_concept(df):
 
 
 def _filter_by_type(df, kind):
+    filtered_df = df.copy()
+    filtered_df["date"] = filtered_df["date"].dt.strftime("%Y-%m-%d")
+    filtered_df = filtered_df.drop(columns=["value_date", "balance"])
+
     if kind == "incoming":
-        return df[df.amount > 0]
+        return filtered_df[filtered_df.amount > 0]
     elif kind == "spending":
-        return df[df.amount < 0]
+        return filtered_df[filtered_df.amount < 0]
     else:
-        return df
+        return filtered_df
 
 
 class Operations:
