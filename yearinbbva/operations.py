@@ -3,8 +3,20 @@ import bbva2pandas as b2p
 import pandas as pd
 
 
+class NoDocumentsException(Exception):
+    pass
+
+
+class NoPathProvided(Exception):
+    pass
+
+
 def _extract_operations(path):
+    if not path:
+        raise NoPathProvided("No path provided. Use DIRECTORY env var")
     documents = glob.glob(f"{path}/*.pdf")
+    if not documents:
+        raise NoDocumentsException(f"No documents found in dir {path}")
     dfs = map(lambda x: b2p.Report(x).to_df(), documents)
     return pd.concat(dfs)
 
