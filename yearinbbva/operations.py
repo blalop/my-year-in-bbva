@@ -18,8 +18,7 @@ def _extract_operations(path):
     if not documents:
         raise NoDocumentsException(f"No documents found in dir {path}")
     dfs = map(lambda x: b2p.Report(x).to_df(), documents)
-    return pd.concat(dfs)
-
+    return pd.concat(dfs).sort_values(by="date")
 
 def _group_amount_by_year(df):
     df_by_year = df.groupby(df.date.dt.year).sum()
