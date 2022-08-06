@@ -1,7 +1,8 @@
+from distutils.log import debug
 import dotenv
 
 dotenv.load_dotenv(dotenv.find_dotenv())
 
 from app import app
 
-app.run_server()
+app.run_server(host="0.0.0.0")
