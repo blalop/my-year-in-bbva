@@ -25,8 +25,7 @@ def _group_amount_by_year(df):
     df_by_year = df.groupby(df.date.dt.year).sum()
     df_by_year.index = df_by_year.index.to_flat_index()
     df_by_year.index.name = "year"
-    return df_by_year.drop(columns="balance").squeeze()
-
+    return pd.Series(df_by_year.drop(columns="balance").squeeze())
 
 def _group_amount_by_month(df):
     df_by_month = df.groupby([(df.date.dt.year), (df.date.dt.month)]).sum()
@@ -34,12 +33,11 @@ def _group_amount_by_month(df):
         lambda x: f"{str(x[0])[2:]}-{x[1]}"
     )
     df_by_month.index.name = "month"
-    return df_by_month.drop(columns="balance").squeeze()
-
+    return pd.Series(df_by_month.drop(columns="balance").squeeze())
 
 def _group_amount_by_concept(df):
     df_by_concept = df.groupby(df.concept).sum()
-    return df_by_concept.drop(columns="balance").squeeze()
+    return pd.Series(df_by_concept.drop(columns="balance").squeeze())
 
 
 def _filter_by_type(df, kind):
