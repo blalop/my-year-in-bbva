@@ -1,4 +1,3 @@
-from distutils.log import debug
 import dotenv
 
 dotenv.load_dotenv(dotenv.find_dotenv())
