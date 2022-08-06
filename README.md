@@ -10,6 +10,9 @@ The requirements can be found in the Pipfile. This app uses [bbva2pandas library
 
 ## From docker image
 
+```
+docker run -v directory/with/monthly/statements:/documents -p 8050:8050 blalop/my-year-in-bbva
+```
 
 ## From bare metal
 
