@@ -8,17 +8,17 @@ The requirements can be found in the Pipfile. This app uses [bbva2pandas library
 
 ## Running
 
+## From docker image
+
+
+## From bare metal
+
 Set up virtual env:
 ```
-pipenv sync
+pipenv install -r requirements.txt
 ```
 
-Config a .env file:
+Config a .env file, and run the app:
 ```
-DIRECTORY=directory/with/monthly/statements
-```
-
-And run the app:
-```
-pipenv run python3 yearinbbva
+DIRECTORY=directory/with/monthly/statements pipenv run python3 yearinbbva
 ```
