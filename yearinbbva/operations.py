@@ -1,96 +1,95 @@
-import glob
-import bbva2pandas as b2p
 import pandas as pd
-
-
-class NoDocumentsException(Exception):
-    pass
-
-
-class NoPathProvided(Exception):
-    pass
-
-
-def _extract_operations(path):
-    if not path:
-        raise NoPathProvided("No path provided. Use DIRECTORY env var")
-    documents = glob.glob(f"{path}/*.pdf")
-    if not documents:
-        raise NoDocumentsException(f"No documents found in dir {path}")
-    dfs = map(lambda x: b2p.Report(x).to_df(), documents)
-    return pd.concat(dfs).sort_values(by="date")
-
-def _group_amount_by_year(df):
-    df_by_year = df.groupby(df.date.dt.year).sum()
-    df_by_year.index = df_by_year.index.to_flat_index()
-    df_by_year.index.name = "year"
-    return pd.Series(df_by_year.drop(columns="balance").squeeze())
-
-def _group_amount_by_month(df):
-    df_by_month = df.groupby([(df.date.dt.year), (df.date.dt.month)]).sum()
-    df_by_month.index = df_by_month.index.to_flat_index().map(
-        lambda x: f"{str(x[0])[2:]}-{x[1]}"
-    )
-    df_by_month.index.name = "month"
-    return pd.Series(df_by_month.drop(columns="balance").squeeze())
-
-def _group_amount_by_concept(df):
-    df_by_concept = df.groupby(df.concept).sum()
-    return pd.Series(df_by_concept.drop(columns="balance").squeeze())
-
-
-def _filter_by_type(df, kind):
-    filtered_df = df.copy()
-    filtered_df["date"] = filtered_df["date"].dt.strftime("%Y-%m-%d")
-    filtered_df = filtered_df.drop(columns=["value_date", "balance"])
-
-    if kind == "incoming":
-        return filtered_df[filtered_df.amount > 0]
-    elif kind == "spending":
-        return filtered_df[filtered_df.amount < 0]
-    else:
-        return filtered_df
+import os
+import sqlite3
 
 
 class Operations:
-    def __init__(self, path="."):
-        self.operations = _extract_operations(path)
-        self.incoming = self.operations.query("amount > 0")
-        self.spending = self.operations.query("amount < 0")
+    def __init__(self, path=os.getenv("MYYEARINBBVA_PATH", "movements.db")):
+        self.conn = sqlite3.connect(path, check_same_thread=False)
 
-    def _concat_groups(self, grouping_func):
-        return pd.concat(
-            {
-                "incoming": grouping_func(self.incoming),
-                "spending": grouping_func(self.spending),
-                "difference": grouping_func(self.incoming)
-                + grouping_func(self.spending),
-            },
-            axis=1,
+    @property
+    def all(self):
+        return pd.read_sql(
+            "SELECT * FROM MOVEMENTS ORDER BY date",
+            self.conn,
         )
 
     @property
-    def group_by_year(self):
-        return self._concat_groups(_group_amount_by_year)
+    def by_year(self):
+        incoming = pd.read_sql(
+            "SELECT STRFTIME('%Y', date) AS year, SUM(amount) AS incoming FROM MOVEMENTS WHERE amount > 0 GROUP BY year",
+            self.conn,
+            index_col="year",
+        )
+        spending = pd.read_sql(
+            "SELECT STRFTIME('%Y', date) AS year, SUM(amount) AS spending FROM MOVEMENTS WHERE amount < 0 GROUP BY year",
+            self.conn,
+            index_col="year",
+        )
+
+        return pd.merge(incoming, spending, on="year")
 
     @property
-    def group_by_month(self):
-        return self._concat_groups(_group_amount_by_month)
+    def by_month(self):
+        incoming = pd.read_sql(
+            "SELECT STRFTIME('%Y-%m', date) AS month, SUM(amount) AS incoming FROM MOVEMENTS WHERE amount > 0 GROUP BY month",
+            self.conn,
+            index_col="month",
+        )
+        spending = pd.read_sql(
+            "SELECT STRFTIME('%Y-%m', date) AS month, SUM(amount) AS spending FROM MOVEMENTS WHERE amount < 0 GROUP BY month",
+            self.conn,
+            index_col="month",
+        )
+
+        return pd.merge(incoming, spending, on="month")
 
     @property
-    def group_by_concept(self):
-        return self._concat_groups(_group_amount_by_concept)
+    def by_concept(self):
+        incoming = pd.read_sql(
+            "SELECT concept, SUM(amount) AS incoming FROM MOVEMENTS WHERE amount > 0 GROUP BY concept",
+            self.conn,
+            index_col="concept",
+        )
+        spending = pd.read_sql(
+            "SELECT concept, SUM(amount) AS spending FROM MOVEMENTS WHERE amount < 0 GROUP BY concept",
+            self.conn,
+            index_col="concept",
+        )
+
+        return pd.merge(incoming, spending, on="concept", how="outer")
 
     @property
     def concepts(self):
-        return self.operations.concept.unique()
+        return pd.read_sql(
+            "SELECT DISTINCT concept FROM MOVEMENTS",
+            self.conn,
+        )
 
-    def query_by_month(self, month, type):
-        operations_by_month = self.operations[
-            self.operations.date.dt.strftime("%Y-%m") == month
-        ]
-        return _filter_by_type(operations_by_month, type)
+    def query_by_month(self, month, amount):
+        if amount > 0:
+            return pd.read_sql(
+                "SELECT STRFTIME('%Y-%m-%d', date) AS day, concept, subconcept, card, amount FROM MOVEMENTS WHERE STRFTIME('%Y-%m', date) = STRFTIME('%Y-%m', :month) AND amount > 0 ORDER BY date",
+                self.conn,
+                params={"month": month},
+            )
+        elif amount < 0:
+            return pd.read_sql(
+                "SELECT STRFTIME('%Y-%m-%d', date) AS day, concept, subconcept, card, amount FROM MOVEMENTS WHERE STRFTIME('%Y-%m', date) = STRFTIME('%Y-%m', :month) AND amount < 0 ORDER BY date",
+                self.conn,
+                params={"month": month},
+            )
 
-    def query_by_concept(self, concept, type):
-        operations_by_concept = self.operations[self.operations.concept == concept]
-        return _filter_by_type(operations_by_concept, type)
+    def query_by_concept(self, concept, amount):
+        if amount > 0:
+            return pd.read_sql(
+                "SELECT STRFTIME('%Y-%m-%d', date) AS day, subconcept, card, amount FROM MOVEMENTS WHERE concept = :concept AND amount > 0 ORDER BY date",
+                self.conn,
+                params={"concept": concept},
+            )
+        elif amount < 0:
+            return pd.read_sql(
+                "SELECT STRFTIME('%Y-%m-%d', date) AS day, subconcept, card, amount FROM MOVEMENTS WHERE concept = :concept AND amount < 0 ORDER BY date",
+                self.conn,
+                params={"concept": concept},
+            )
